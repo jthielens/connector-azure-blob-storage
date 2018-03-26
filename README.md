@@ -55,7 +55,7 @@ are supported:
 | Command | Options | Description |
 |---------|---------|-------------|
 | `DIR` _directory_    | &nbsp; | List the contents of a (virtual) directory.  Use `DIR ""` to list contents of the container root |
-| `GET` _name_ _destination_ | `-DEL` | Retrieve the contents of Blob _name_ into _destination_, subsequently deleting the Blob if `-DEL` is set. |
+| `GET`&nbsp;_name_&nbsp;_destination_ | `-DEL` | Retrieve the contents of Blob _name_ into _destination_, subsequently deleting the Blob if `-DEL` is set. |
 | `PUT` _source_ _name_ | `-APE` `-DEL` `-UNI` | Store the contents of _source_ into Blob _name_, subsequently deleting _source_ if `-DEL` is set.  See *Blob Types* below for a discussion of the `-APPend` and `-UNIque` options. |
 | `DELETE` _name_ | &nbsp; | Deletes Blob _name_ from the container. |
 | `ATTR` _name_ | &nbsp; | Retrieves the attributes of Blob _name_. |
