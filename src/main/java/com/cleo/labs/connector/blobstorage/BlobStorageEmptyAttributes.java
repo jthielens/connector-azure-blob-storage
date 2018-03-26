@@ -7,47 +7,34 @@ import java.nio.file.attribute.FileTime;
 import java.util.Date;
 
 import com.cleo.connector.api.helper.Logger;
-import com.microsoft.azure.storage.blob.BlobContainerProperties;
 
 /**
- * Azure Blob Container file attribute views
+ * Azure Blob empty file attribute views
  */
-public class BlobStorageContainerAttributes implements DosFileAttributes, DosFileAttributeView {
-    private BlobContainerProperties properties;
+public class BlobStorageEmptyAttributes implements DosFileAttributes, DosFileAttributeView {
     private Logger logger;
+    private Date time;
 
-    public BlobStorageContainerAttributes(BlobContainerProperties properties, Logger logger) {
-        this.properties = properties;
+    public BlobStorageEmptyAttributes(Logger logger) {
         this.logger = logger;
+        this.time = new Date();
     }
 
     @Override
     public FileTime lastModifiedTime() {
-        Date time = properties.getLastModified();
         logger.debug(String.format("lastModifidedTime()=%s", time));
-        if (time==null) {
-            time = new Date();
-        }
         return FileTime.fromMillis(time.getTime());
     }
 
     @Override
     public FileTime lastAccessTime() {
-        Date time = properties.getLastModified();
         logger.debug(String.format("lastAccessTime()=%s", time));
-        if (time==null) {
-            time = new Date();
-        }
         return FileTime.fromMillis(time.getTime());
     }
 
     @Override
     public FileTime creationTime() {
-        Date time = properties.getLastModified();
         logger.debug(String.format("creationTime()=%s", time));
-        if (time==null) {
-            time = new Date();
-        }
         return FileTime.fromMillis(time.getTime());
     }
 
@@ -90,13 +77,13 @@ public class BlobStorageContainerAttributes implements DosFileAttributes, DosFil
     @Override
     public void setTimes(FileTime lastModifiedTime, FileTime lastAccessTime, FileTime createTime) throws IOException {
         if (lastModifiedTime != null || lastAccessTime != null || createTime != null) {
-            throw new UnsupportedOperationException("setTimes() not supported for Azure Blob Container");
+            throw new UnsupportedOperationException("setTimes() not supported for Azure Blob");
         }
     }
 
     @Override
     public String name() {
-        return "container";
+        return "storage account";
     }
 
     @Override
@@ -106,22 +93,22 @@ public class BlobStorageContainerAttributes implements DosFileAttributes, DosFil
 
     @Override
     public void setReadOnly(boolean value) throws IOException {
-        throw new UnsupportedOperationException("setHidden() not supported for Azure Blob Container");
+        throw new UnsupportedOperationException("setHidden() not supported for Azure Blob");
     }
 
     @Override
     public void setHidden(boolean value) throws IOException {
-        throw new UnsupportedOperationException("setHidden() not supported for Azure Blob Container");
+        throw new UnsupportedOperationException("setHidden() not supported for Azure Blob");
     }
 
     @Override
     public void setSystem(boolean value) throws IOException {
-        throw new UnsupportedOperationException("setSystem() not supported for Azure Blob Container");
+        throw new UnsupportedOperationException("setSystem() not supported for Azure Blob");
     }
 
     @Override
     public void setArchive(boolean value) throws IOException {
-        throw new UnsupportedOperationException("setArchive() not supported for Azure Blob Container");
+        throw new UnsupportedOperationException("setArchive() not supported for Azure Blob");
     }
 
     @Override

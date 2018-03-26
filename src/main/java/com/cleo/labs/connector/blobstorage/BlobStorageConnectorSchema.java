@@ -42,7 +42,6 @@ public class BlobStorageConnectorSchema extends ConnectorConfig {
     @Property
     final IConnectorProperty<String> container = new PropertyBuilder<>("Container", "")
             .setDescription("The Azure Storage Container name.")
-            .setRequired(true)
             .build();
 
     @Property

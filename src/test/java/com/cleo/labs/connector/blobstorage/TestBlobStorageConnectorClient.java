@@ -151,7 +151,7 @@ public class TestBlobStorageConnectorClient {
     //@Ignore
     @Test
     public void testOne() throws Exception {
-        BlobStorageContainer container = new BlobStorageContainer(CONFIG);
+        BlobStorageContainer container = new BlobStorageContainer(new BlobStorageAccount(CONFIG), CONFIG.getContainer());
 
         /*
         System.out.println("mkdir(john)");

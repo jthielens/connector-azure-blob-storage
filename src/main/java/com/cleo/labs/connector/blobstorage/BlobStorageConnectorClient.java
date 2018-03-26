@@ -35,15 +35,18 @@ import com.cleo.connector.api.helper.Attributes;
 import com.cleo.connector.api.interfaces.IConnectorIncoming;
 import com.cleo.connector.api.interfaces.IConnectorOutgoing;
 import com.cleo.connector.api.property.ConnectorPropertyException;
+import com.cleo.labs.connector.blobstorage.BlobStorageAccount.ContainerAndPath;
 import com.google.common.base.Strings;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.BlobProperties;
 import com.microsoft.azure.storage.blob.CloudBlob;
+import com.microsoft.azure.storage.blob.CloudBlobContainer;
 import com.microsoft.azure.storage.blob.CloudBlobDirectory;
 import com.microsoft.azure.storage.blob.ListBlobItem;
 
 public class BlobStorageConnectorClient extends ConnectorClient {
     private BlobStorageConnectorConfig config;
+    private BlobStorageAccount account;
     private BlobStorageContainer container;
 
     /**
@@ -80,7 +83,10 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         if (container == null) {
             logger.debug("connecting as "+config.getConnectionString());
             logger.debug("proxy is "+config.getProxy());
-            container = new BlobStorageContainer(config);
+            account = new BlobStorageAccount(config);
+            if (!Strings.isNullOrEmpty(config.getContainer())) {
+                container = account.getContainer(config.getContainer());
+            }
         }
     }
 
@@ -93,23 +99,34 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         setup();
 
         if (path.equals(".")) path = ""; // TODO: remove when Harmony is fixed
-        path = container.normalizePath(path);
+        ContainerAndPath cp = account.parse(container, path);
+        cp.path = account.normalizePath(cp.path);
 
         List<Entry> list = new ArrayList<>();
-        for (ListBlobItem item : container.dir(path)) {
-            if (item instanceof CloudBlobDirectory) {
-                CloudBlobDirectory directory = (CloudBlobDirectory) item;
-                Entry entry = new Entry(Type.dir).setPath(directory.getPrefix().substring(path.length())).setSize(-1L);
+        if (cp.container == null) {
+            for (CloudBlobContainer c : account.dir()) {
+                Entry entry = new Entry(Type.dir)
+                        .setPath(c.getName())
+                        .setDate(Attributes.toLocalDateTime(c.getProperties().getLastModified()))
+                        .setSize(-1L);
                 list.add(entry);
-            } else if (item instanceof CloudBlob) {
-                CloudBlob blob = (CloudBlob) item;
-                if (!blob.getName().equals(path)) { // the directory placeholder
-                                                    // path/ is omitted
-                    BlobProperties properties = blob.getProperties();
-                    Entry entry = new Entry(Type.file).setPath(blob.getName().substring(path.length()))
-                            .setSize(properties.getLength())
-                            .setDate(Attributes.toLocalDateTime(properties.getLastModified()));
+            }
+        } else {
+            for (ListBlobItem item : cp.container.dir(cp.path)) {
+                if (item instanceof CloudBlobDirectory) {
+                    CloudBlobDirectory directory = (CloudBlobDirectory) item;
+                    Entry entry = new Entry(Type.dir).setPath(directory.getPrefix().substring(cp.path.length())).setSize(-1L);
                     list.add(entry);
+                } else if (item instanceof CloudBlob) {
+                    CloudBlob blob = (CloudBlob) item;
+                    if (!blob.getName().equals(cp.path)) { // the directory placeholder
+                                                        // path/ is omitted
+                        BlobProperties properties = blob.getProperties();
+                        Entry entry = new Entry(Type.file).setPath(blob.getName().substring(cp.path.length()))
+                                .setSize(properties.getLength())
+                                .setDate(Attributes.toLocalDateTime(properties.getLastModified()));
+                        list.add(entry);
+                    }
                 }
             }
         }
@@ -124,9 +141,15 @@ public class BlobStorageConnectorClient extends ConnectorClient {
 
         logger.debug(String.format("GET remote '%s' to local '%s'", path, destination.getPath()));
         setup();
+        ContainerAndPath cp = account.parse(container, path);
+
+        if (cp.container == null) {
+            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
+                    ConnectorException.Category.fileNonExistentOrNoAccess);
+        }
 
         try {
-            transfer(container.getInputStream(path), destination.getStream(), true);
+            transfer(cp.container.getInputStream(cp.path), destination.getStream(), true);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (StorageException e) {
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
@@ -171,12 +194,18 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         logger.debug(String.format("PUT local '%s' to remote '%s' (matching filename '%s')", source.getPath(), path,
                 filename));
         setup();
+        ContainerAndPath cp = account.parse(container, path);
+
+        if (cp.container == null) {
+            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
+                    ConnectorException.Category.fileNonExistentOrNoAccess);
+        }
 
         boolean unique = ConnectorCommandUtil.isOptionOn(put.getOptions(), Unique);
         boolean append = ConnectorCommandUtil.isOptionOn(put.getOptions(), Append);
 
         try {
-            transfer(put.getSource().getStream(), container.getOutputStream(path, append, unique), false);
+            transfer(put.getSource().getStream(), cp.container.getOutputStream(cp.path, append, unique), false);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (StorageException e) {
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
@@ -202,20 +231,22 @@ public class BlobStorageConnectorClient extends ConnectorClient {
             throws ConnectorException, IOException, InvalidKeyException, URISyntaxException, StorageException {
         logger.debug(String.format("ATTR '%s'", path));
         setup();
-
         if (path.equals(".")) path = ""; // TODO: remove when Harmony is fixed
+        ContainerAndPath cp = account.parse(container, path);
 
-        if (Strings.isNullOrEmpty(path)) {
+        if (cp.container == null) {
+            return new BlobStorageEmptyAttributes(logger);
+        } else if (Strings.isNullOrEmpty(cp.path)) {
             // return an Attr object representing the container
-            return new BlobStorageContainerAttributes(container.getProperties(), logger);
+            return new BlobStorageContainerAttributes(cp.container.getProperties(), logger);
         } else {
             try {
-                return new BlobStorageBlobAttributes(container.getBlob(path).getProperties(), logger);
+                return new BlobStorageBlobAttributes(cp.container.getBlob(cp.path).getProperties(), logger);
             } catch (StorageException | URISyntaxException e) {
-                if (container.dir(path).iterator().hasNext()) { // this is like isempty, but without skipping the placeholder
+                if (cp.container.dir(cp.path).iterator().hasNext()) { // this is like isempty, but without skipping the placeholder
                     // use the container properties as the closest proxy for the
                     // virtual directory properties
-                    return new BlobStorageContainerAttributes(container.getProperties(), logger);
+                    return new BlobStorageContainerAttributes(cp.container.getProperties(), logger);
                 } else {
                     throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
                             ConnectorException.Category.fileNonExistentOrNoAccess);
@@ -230,9 +261,15 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         String path = delete.getSource();
         logger.debug(String.format("DELETE '%s'", path));
         setup();
+        ContainerAndPath cp = account.parse(container, path);
+
+        if (cp.container == null) {
+            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
+                    ConnectorException.Category.fileNonExistentOrNoAccess);
+        }
 
         try {
-            CloudBlob blob = container.getBlob(path);
+            CloudBlob blob = cp.container.getBlob(cp.path);
             blob.delete();
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (URISyntaxException | StorageException e) {
@@ -247,14 +284,23 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         String path = mkdir.getSource();
         logger.debug(String.format("MKDIR '%s'", path));
         setup();
+        if (path.equals(".")) path = ""; // TODO: remove when Harmony is fixed
+        ContainerAndPath cp = account.parse(container, path);
 
-        if (Strings.isNullOrEmpty(path) || path.equals(".")) {
-            // just ignore mkdir on the root
-            return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
+        if (cp.container == null) {
+            throw new ConnectorException("MKDIR: directory name is required");
+        } else if (Strings.isNullOrEmpty(cp.path)) {
+            if (container == null) {
+                // mkdir "container" attempt
+                throw new ConnectorException("MKDIR cannot create a container");
+            } else {
+                // mkdir "/" attempt within a connection-defined container
+                return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
+            }
         }
 
         try {
-            container.mkdir(path);
+            cp.container.mkdir(cp.path);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (URISyntaxException | StorageException e) {
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
@@ -268,15 +314,17 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         String path = mkdir.getSource();
         logger.debug(String.format("RMDIR '%s'", path));
         setup();
+        if (path.equals(".")) path = ""; // TODO: remove when Harmony is fixed
+        ContainerAndPath cp = account.parse(container, path);
 
-        if (Strings.isNullOrEmpty(path) || path.equals(".")) {
-            // can't remove container
+        if (cp.container == null || Strings.isNullOrEmpty(cp.path)) {
+            // can't remove container or "/"
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
                     ConnectorException.Category.fileNonExistentOrNoAccess);
         }
 
         try {
-            container.rmdir(path);
+            cp.container.rmdir(cp.path);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (IOException e) {
             // TODO: not sure what error to return in this situation (non-empty dir)
