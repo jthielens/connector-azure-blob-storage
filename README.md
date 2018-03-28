@@ -39,10 +39,12 @@ When Harmony/VLTrader restarts, you will see a new `Template` in the host tree
 under `Connections` > `Generic` > `Generic BLOB`.  Select `Clone and Activate`
 and a new `BLOB` connection (host) will appear on the `Active` tab.
 
-To configure the new `BLOB` connection, enter your Azure Storage Account, one of your Access Keys, and the name of your Container in the `BLOB` panel.  You may also configure the Proxy Address, Proxy Port, and additional HTTP Headers if these are required to access the Azure cloud from your Harmony instance.
+To configure the new `BLOB` connection, enter your Azure Storage Account, one of your Access Keys, and (optionally) the name of your Container in the `BLOB` panel.  You may also configure the Proxy Address, Proxy Port, and additional HTTP Headers if these are required to access the Azure cloud from your Harmony instance.
 
-Each `BLOB` connection corresponds to a single container in a single storage account.  Although the default alias for the connection is `BLOB`, it is most
-intuitive (but not required) to use the container name for the alias.
+Each `BLOB` connection corresponds either to an entire storage account (if the container name
+is not supplied in the connection), or to a single named container in a single storage account.  Although the default alias for the connection is `BLOB`, it is most
+intuitive (but not required) to use the storage account name or the container name for
+the alias.
 You may repeat the `Clone and Activate` process, or you may `Clone...` an existing `BLOB` connection, to create connections to additional containers and storage accounts.
 
 
@@ -54,7 +56,7 @@ are supported:
 
 | Command | Options | Description |
 |---------|---------|-------------|
-| `DIR` _directory_    | &nbsp; | List the contents of a (virtual) directory.  Use `DIR ""` to list contents of the container root |
+| `DIR` _directory_    | &nbsp; | List the contents of a (virtual) directory.  Use `DIR ""` to list contents of the account or container root |
 | `GET`&nbsp;_name_&nbsp;_destination_ | `-DEL` | Retrieve the contents of Blob _name_ into _destination_, subsequently deleting the Blob if `-DEL` is set. |
 | `PUT` _source_ _name_ | `-APE`<br/>`-DEL`<br/>`-UNI` | Store the contents of _source_ into Blob _name_, subsequently deleting _source_ if `-DEL` is set.  See *Blob Types* below for a discussion of the `-APPend` and `-UNIque` options. |
 | `DELETE` _name_ | &nbsp; | Deletes Blob _name_ from the container. |
@@ -62,7 +64,14 @@ are supported:
 | `MKDIR` _name_ | &nbsp; | Creates a placeholder Block Blob _name_`/` (appending the directory separator if needed). |
 | `RMDIR` _name_ | &nbsp; | Deletes a placeholder Block Blob _name_`/` (appending the directory separator if needed) if it exists and no additional Blobs exist with _name_`/` as a prefix. |
 
+For a storage account level connection (one for which no specific container name is
+specified), the top-level directory name is mapped to the container name.  This means
+that `MKDIR container` and `RMDIR container` can be used to create and delete containers
+within the storage account.
 
+For a container level connection (where a container name is specified), the container
+itself may not be manipulated.  Specifically `RMDIR ""` is an error, not an attempt
+to delete the container.
 
 ### Unique Filenames ###
 
@@ -129,9 +138,9 @@ connector does not currently support `RENAME`.
 ## Use as URI ##
 
 You may refer to a Blob connection from actions outside of the Blob connection
-itself using _URI_ references of the form `blob:alias/path` (where `alias` is
-the alias assigned to the connection, typically the container name).  These
-URI references can appear in most places where a filename can appear, including:
+itself using _URI_ references of the form `blob:alias/container/path` or `blob:alias/path`
+(where `alias` is the alias assigned to the connection, typically the account or container
+name).  These URI references can appear in most places where a filename can appear, including:
 
 * as the destination of a `GET` command for another connection (which will stream the retrieved content from that connection into a `PUT` command for the Blob connection).
 * as the source of a `PUT` command for another conneciton (which will stream into that connection the content retrieved from a `GET` command for the Blob connection).
