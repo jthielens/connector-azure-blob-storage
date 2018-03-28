@@ -61,17 +61,6 @@ public class BlobStorageConnectorClient extends ConnectorClient {
     }
 
     /**
-     * Constructs a new {@code BlobStorageConnectorClient} for the schema using
-     * explicit config for testing.
-     * 
-     * @param config the {@code BlobStorageConnectorConfig}
-     */
-    public BlobStorageConnectorClient(BlobStorageConnectorConfig config) {
-        this.config = config;
-        this.container = null;
-    }
-
-    /**
      * Establishes a live container reference from the configuration.
      * 
      * @throws InvalidKeyException
