@@ -12,6 +12,7 @@ import com.google.common.base.Strings;
 import com.microsoft.azure.storage.StorageErrorCodeStrings;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.BlobContainerProperties;
+import com.microsoft.azure.storage.blob.BlobContainerPublicAccessType;
 import com.microsoft.azure.storage.blob.BlobListingDetails;
 import com.microsoft.azure.storage.blob.BlobOutputStream;
 import com.microsoft.azure.storage.blob.BlobRequestOptions;
@@ -194,5 +195,23 @@ public class BlobStorageContainer {
                     null /* options */, account.context());
             blob.delete(DeleteSnapshotsOption.NONE, null /* accessCondition */, null /* options */, account.context());
         }
+    }
+
+    /**
+     * Creates a new container (if it doesn't exist)
+     *
+     * @throws StorageException in case of error
+     */
+    public void create() throws StorageException {
+        container.createIfNotExists(BlobContainerPublicAccessType.OFF, null /* options */, account.context());
+    }
+
+    /**
+     * Deletes a container
+     *
+     * @throws StorageException in case of error
+     */
+    public void delete() throws StorageException {
+        container.deleteIfExists(null /* accessCondition */, null /* options */, account.context());
     }
 }

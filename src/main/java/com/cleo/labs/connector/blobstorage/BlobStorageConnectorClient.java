@@ -281,13 +281,19 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         } else if (Strings.isNullOrEmpty(cp.path)) {
             if (container == null) {
                 // mkdir "container" attempt
-                throw new ConnectorException("MKDIR cannot create a container");
+                try {
+                    cp.container.create();
+                    return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
+                } catch (StorageException e) {
+                    throw new ConnectorException("MKDIR cannot create container "+path, e);
+                }
             } else {
                 // mkdir "/" attempt within a connection-defined container
                 return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
             }
         }
 
+        // regular mkdir request
         try {
             cp.container.mkdir(cp.path);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
@@ -306,12 +312,25 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         if (path.equals(".")) path = ""; // TODO: remove when Harmony is fixed
         ContainerAndPath cp = account.parse(container, path);
 
-        if (cp.container == null || Strings.isNullOrEmpty(cp.path)) {
-            // can't remove container or "/"
-            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
-                    ConnectorException.Category.fileNonExistentOrNoAccess);
+        if (cp.container == null) {
+            throw new ConnectorException("RMDIR: directory name is required");
+        } else if (Strings.isNullOrEmpty(cp.path)) {
+            if (container == null) {
+                // rmdir "container" attempt
+                try {
+                    cp.container.delete();
+                } catch (StorageException e) {
+                    throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
+                            e,
+                            ConnectorException.Category.fileNonExistentOrNoAccess);
+                }
+            } else {
+                // rmdir "/" attempt within a connection-defined container
+                throw new ConnectorException("RMDIR: cannot remove /");
+            }
         }
 
+        // regular rmdir request
         try {
             cp.container.rmdir(cp.path);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);

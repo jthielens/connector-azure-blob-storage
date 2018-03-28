@@ -54,6 +54,26 @@ public class TestBlobStorageAccount {
     }
 
     @Test
+    public void testCreateContainer() {
+        BlobStorageConnectorClient client = setupClient();
+        ConnectorCommandResult result;
+
+        String container = "container-"+UUID.randomUUID().toString();
+        // make a new container
+        result = Commands.mkdir(container).go(client);
+        assertEquals(Status.Success, result.getStatus());
+        // make it again -- it's existing, but still should be ok
+        result = Commands.mkdir(container).go(client);
+        assertEquals(Status.Success, result.getStatus());
+        // now delete it
+        result = Commands.rmdir(container).go(client);
+        assertEquals(Status.Success, result.getStatus());
+        // delete it (non existing) should also be ok
+        result = Commands.rmdir(container).go(client);
+        assertEquals(Status.Success, result.getStatus());
+    }
+
+    @Test
     public void testRoundTrip() throws Exception {
         BlobStorageConnectorClient client = setupClient();
         ConnectorCommandResult result;
