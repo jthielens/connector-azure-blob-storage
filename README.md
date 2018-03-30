@@ -1,7 +1,7 @@
 # README #
 
 This connector supports Microsoft Azure Blob Storage as a plugin connector
-for Harmony 5.4.1.
+for Harmony 5.5 or Harmony 5.4.1.
 
 ## TL;DR ##
 
@@ -22,15 +22,24 @@ unzip -o blob-5.4.1.0-SNAPSHOT-distribution.zip
 
 The Azure Blob Storage connector is distributed as a ZIP archive named
 `blob-5.4.1.0-build-distribution.zip` where `build` is a build number
-(of 7 heaxadecial digits).  It can be installed on a Harmony 5.4.1
-server at patch level 9 (5.4.1.9) or higher.
+(of 7 heaxadecial digits).  It can be installed on a Harmony 5.5 server,
+or on a Harmony 5.4.1 server at patch level 9 (5.4.1.9) or higher.
 
-To install the connector, expand the archive from the Harmony installation
+To install the connector, expand the archive from the Harmony 5.5 installation
 directory (`$CLEOHOME` below) and restart Harmony.
 
 ```
 cd $CLEOHOME
 unzip -o blob-5.4.1.0-build-distribution.zip
+./Harmonyd stop
+./Harmonyd start
+```
+
+or for Harmony 5.4.1
+
+```
+cd $CLEOHOME
+unzip -o blob-5.4.1.0-build-distribution-54.zip
 ./Harmonyd stop
 ./Harmonyd start
 ```
