@@ -5,7 +5,7 @@
 
     <groupId>com.cleo.labs.connector</groupId>
     <artifactId>blob</artifactId>
-    <version>5.4.1.0-SNAPSHOT</version>
+    <version>5.5.5.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>connector-azure-blob-storage</name>
@@ -46,7 +46,7 @@
         <junit.version>4.11</junit.version>
         <mockito-all.version>1.9.5</mockito-all.version>
         <gson.version>2.2</gson.version>
-        <cleo.version>5.4.1.16</cleo.version>
+        <cleo.version>5.5.0.0</cleo.version>
         <azure.storage.version>7.0.0</azure.storage.version>
         <maven.assembly.plugin.version>3.1.0</maven.assembly.plugin.version>
     </properties>
@@ -105,7 +105,6 @@
                 <configuration>
                     <descriptors>
                         <descriptor>src/assembly/distribution.xml</descriptor>
-                        <descriptor>src/assembly/distribution-54.xml</descriptor>
                     </descriptors>
                 </configuration>
                 <executions>

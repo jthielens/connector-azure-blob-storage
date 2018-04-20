@@ -1,14 +1,17 @@
 package com.cleo.labs.connector.testing;
 
+import static com.cleo.connector.api.command.ConnectorCommandName.ATTR;
 import static com.cleo.connector.api.command.ConnectorCommandName.DELETE;
 import static com.cleo.connector.api.command.ConnectorCommandName.DIR;
 import static com.cleo.connector.api.command.ConnectorCommandName.GET;
 import static com.cleo.connector.api.command.ConnectorCommandName.MKDIR;
 import static com.cleo.connector.api.command.ConnectorCommandName.PUT;
+import static com.cleo.connector.api.command.ConnectorCommandName.RENAME;
 import static com.cleo.connector.api.command.ConnectorCommandName.RMDIR;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.attribute.BasicFileAttributeView;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.cleo.connector.api.ConnectorClient;
+import com.cleo.connector.api.ConnectorException;
 import com.cleo.connector.api.annotations.Command;
 import com.cleo.connector.api.command.ConnectorCommandName;
 import com.cleo.connector.api.command.ConnectorCommandOption;
@@ -59,13 +63,48 @@ public class Commands {
         return new Rmdir().source(path);
     }
 
-    static private ConnectorCommandResult run(ConnectorClient client, ConnectorCommandName name, Object command) {
+    static public Rename rename(String source, String destination) {
+        return new Rename().source(source).destination(destination);
+    }
+
+    static public Attr attr(String path) {
+        return new Attr().source(path);
+    }
+
+    static private ConnectorCommandResult run(ConnectorClient client, ConnectorCommandName name, Object command) throws ConnectorException {
         for (Method method : client.getClass().getDeclaredMethods()) {
             Command commandAnnotation = method.getAnnotation(Command.class);
             if (commandAnnotation != null && commandAnnotation.name().equals(name)) {
                 try {
                     return (ConnectorCommandResult) (method.invoke(client, command));
-                } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+                } catch (InvocationTargetException e) {
+                    if (e.getCause() instanceof ConnectorException) {
+                        throw (ConnectorException) e.getCause();
+                    }
+                    e.printStackTrace();
+                    return null;
+                } catch (IllegalAccessException | IllegalArgumentException e) {
+                    e.printStackTrace();
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    static private BasicFileAttributeView attr(ConnectorClient client, String path) throws ConnectorException {
+        for (Method method : client.getClass().getDeclaredMethods()) {
+            Command commandAnnotation = method.getAnnotation(Command.class);
+            if (commandAnnotation != null && commandAnnotation.name().equals(ATTR)) {
+                try {
+                    return (BasicFileAttributeView) (method.invoke(client, path));
+                } catch (InvocationTargetException e) {
+                    if (e.getCause() instanceof ConnectorException) {
+                        throw (ConnectorException) e.getCause();
+                    }
+                    e.printStackTrace();
+                    return null;
+                } catch (IllegalAccessException | IllegalArgumentException e) {
                     e.printStackTrace();
                     return null;
                 }
@@ -94,7 +133,7 @@ public class Commands {
             return this;
         }
 
-        public ConnectorCommandResult go(ConnectorClient client) {
+        public ConnectorCommandResult go(ConnectorClient client) throws ConnectorException {
             DirCommand command = new DirCommand(DIR.name(), options, new Entry(Type.dir).setPath(path), pattern,
                     NO_DESTINATION, NO_PARAMETERS);
             return run(client, DIR, command);
@@ -131,7 +170,7 @@ public class Commands {
             return this;
         }
 
-        public ConnectorCommandResult go(ConnectorClient client) {
+        public ConnectorCommandResult go(ConnectorClient client) throws ConnectorException {
             PutCommand command = new PutCommand(PUT, options, new IConnectorOutgoing[] { source },
                     new Entry(Type.file).setPath(destination), parameters);
             return run(client, PUT, command);
@@ -168,7 +207,7 @@ public class Commands {
             return this;
         }
 
-        public ConnectorCommandResult go(ConnectorClient client) {
+        public ConnectorCommandResult go(ConnectorClient client) throws ConnectorException {
             GetCommand command = new GetCommand(GET, options, new Entry(Type.file).setPath(source), destination,
                     parameters);
             return run(client, GET, command);
@@ -193,7 +232,7 @@ public class Commands {
             return option(option.toString());
         }
 
-        public ConnectorCommandResult go(ConnectorClient client) {
+        public ConnectorCommandResult go(ConnectorClient client) throws ConnectorException {
             OtherCommand command = new OtherCommand(DELETE.name(), options, source, NO_DESTINATION, NO_PARAMETERS,
                     DELETE.name() + " " + source);
             return run(client, DELETE, command);
@@ -208,7 +247,7 @@ public class Commands {
             return this;
         }
 
-        public ConnectorCommandResult go(ConnectorClient client) {
+        public ConnectorCommandResult go(ConnectorClient client) throws ConnectorException {
             OtherCommand command = new OtherCommand(MKDIR.name(), NO_OPTIONS, source, NO_DESTINATION, NO_PARAMETERS,
                     MKDIR.name() + " " + source);
             return run(client, MKDIR, command);
@@ -223,10 +262,44 @@ public class Commands {
             return this;
         }
 
-        public ConnectorCommandResult go(ConnectorClient client) {
+        public ConnectorCommandResult go(ConnectorClient client) throws ConnectorException {
             OtherCommand command = new OtherCommand(RMDIR.name(), NO_OPTIONS, source, NO_DESTINATION, NO_PARAMETERS,
                     RMDIR.name() + " " + source);
             return run(client, RMDIR, command);
+        }
+    }
+
+    static public class Rename {
+        private String source = null;
+        private String destination = null;
+
+        public Rename source(String source) {
+            this.source = source;
+            return this;
+        }
+
+        public Rename destination(String destination) {
+            this.destination = destination;
+            return this;
+        }
+
+        public ConnectorCommandResult go(ConnectorClient client) throws ConnectorException {
+            OtherCommand command = new OtherCommand(RENAME.name(), NO_OPTIONS, source, destination, NO_PARAMETERS,
+                    RENAME.name() + " " + source + " " + destination);
+            return run(client, RENAME, command);
+        }
+    }
+
+    static public class Attr {
+        private String source = null;
+
+        public Attr source(String source) {
+            this.source = source;
+            return this;
+        }
+
+        public BasicFileAttributeView go(ConnectorClient client) throws ConnectorException {
+            return attr(client, source);
         }
     }
 }

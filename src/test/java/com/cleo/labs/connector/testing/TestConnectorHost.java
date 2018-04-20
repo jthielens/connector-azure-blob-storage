@@ -63,6 +63,12 @@ public class TestConnectorHost implements IConnectorHost {
     }
 
     @Override
+    public boolean hasConnectorAuth() {
+        Auth authAnnotation = client.getConnectorConfig().getClass().getAnnotation(Auth.class);
+        return authAnnotation != null;
+    }
+
+    @Override
     public ConnectorAuth getConnectorAuth() throws ConnectorException {
         Auth authAnnotation = client.getConnectorConfig().getClass().getAnnotation(Auth.class);
         if (authAnnotation != null) {

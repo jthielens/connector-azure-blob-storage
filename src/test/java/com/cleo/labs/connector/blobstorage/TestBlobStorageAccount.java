@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import org.junit.Test;
 
+import com.cleo.connector.api.ConnectorException;
 import com.cleo.connector.api.command.ConnectorCommandName;
 import com.cleo.connector.api.command.ConnectorCommandResult;
 import com.cleo.connector.api.command.ConnectorCommandResult.Status;
@@ -54,7 +55,7 @@ public class TestBlobStorageAccount {
     }
 
     @Test
-    public void testCreateContainer() {
+    public void testCreateContainer() throws ConnectorException {
         BlobStorageConnectorClient client = setupClient();
         ConnectorCommandResult result;
 
