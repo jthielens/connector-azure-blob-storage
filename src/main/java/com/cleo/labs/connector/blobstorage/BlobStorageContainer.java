@@ -8,7 +8,6 @@ import java.util.EnumSet;
 
 import org.apache.commons.io.FilenameUtils;
 
-import com.google.common.base.Strings;
 import com.microsoft.azure.storage.StorageErrorCodeStrings;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.BlobContainerProperties;
@@ -50,8 +49,8 @@ public class BlobStorageContainer {
      * @throws URISyntaxException
      * @throws StorageException
      */
-    public CloudBlob getBlob(String path) throws URISyntaxException, StorageException {
-        return container.getBlobReferenceFromServer(path, null /* snapshotID */, null /* accessCondition */,
+    public CloudBlob getBlob(Path path) throws URISyntaxException, StorageException {
+        return container.getBlobReferenceFromServer(path.toString(), null /* snapshotID */, null /* accessCondition */,
                 null /* options */, account.context());
     }
 
@@ -63,7 +62,7 @@ public class BlobStorageContainer {
      * @throws URISyntaxException
      * @throws StorageException
      */
-    public InputStream getInputStream(String path) throws URISyntaxException, StorageException {
+    public InputStream getInputStream(Path path) throws URISyntaxException, StorageException {
         return getBlob(path).openInputStream();
     }
 
@@ -76,12 +75,12 @@ public class BlobStorageContainer {
      * @throws URISyntaxException
      * @throws StorageException
      */
-    public OutputStream getOutputStream(String path, boolean append, boolean unique) throws URISyntaxException, StorageException, IOException {
+    public OutputStream getOutputStream(Path path, boolean append, boolean unique) throws URISyntaxException, StorageException, IOException {
         // first assess the existence and type of the blob
         // throws IOException if the type is not BLOCK for overwrite (!append) or APPEND for append
         CloudBlob test = null;
         try {
-            test = container.getBlobReferenceFromServer(path, null, null, null, account.context());
+            test = container.getBlobReferenceFromServer(path.toString(), null, null, null, account.context());
             BlobType type = test.getProperties().getBlobType();
             if (append && type != BlobType.APPEND_BLOB) {
                 throw new IOException("unsupported Blob type for operation: "+BlobType.APPEND_BLOB+" required.");
@@ -97,8 +96,9 @@ public class BlobStorageContainer {
         // make it unique if requested
         if (unique && test != null) {
             int counter = 0;
-            String ext = FilenameUtils.getExtension(path).replaceFirst("^(?=[^\\.])","."); // prefix with "." unless empty or already "."
-            String base = path.substring(0, path.length()-ext.length());
+            String name = path.name();
+            String ext = FilenameUtils.getExtension(name).replaceFirst("^(?=[^\\.])","."); // prefix with "." unless empty or already "."
+            String base = name.substring(0, name.length()-ext.length());
             String candidate;
 
             do {
@@ -113,7 +113,7 @@ public class BlobStorageContainer {
                     test = null;
                 }
             } while (test != null);
-            path = candidate;
+            path = path.parent().child(candidate);
         }
         // test and path are now updated for uniqueness
         // test will be non-null if !unique
@@ -121,12 +121,12 @@ public class BlobStorageContainer {
             BlobRequestOptions options = new BlobRequestOptions();
             options.setAbsorbConditionalErrorsOnRetry(true); // advised for single writer scenarios
             if (test == null) {
-                return container.getAppendBlobReference(path).openWriteNew(null /* accessCondition */, options, account.context());
+                return container.getAppendBlobReference(path.toString()).openWriteNew(null /* accessCondition */, options, account.context());
             } else {
-                return container.getAppendBlobReference(path).openWriteExisting(null /* accessCondition */, options, account.context());
+                return container.getAppendBlobReference(path.toString()).openWriteExisting(null /* accessCondition */, options, account.context());
             }
         } else {
-            return container.getBlockBlobReference(path).openOutputStream(null /* accessCondition */, null /* options */, account.context());
+            return container.getBlockBlobReference(path.toString()).openOutputStream(null /* accessCondition */, null /* options */, account.context());
         }
     }
 
@@ -139,10 +139,10 @@ public class BlobStorageContainer {
      * @throws StorageException
      * @throws IOException
      */
-    public void mkdir(String folder) throws URISyntaxException, StorageException, IOException {
-        if (!Strings.isNullOrEmpty(folder)) {
-            folder = account.normalizePath(folder);
-            CloudBlockBlob blob = container.getBlockBlobReference(folder);
+    public void mkdir(Path folder) throws URISyntaxException, StorageException, IOException {
+        if (!folder.empty()) {
+            String name = folder.toString()+account.getDelimiter();
+            CloudBlockBlob blob = container.getBlockBlobReference(name);
             BlobOutputStream bos = blob.openOutputStream(null /* accessCondition */, null /* options */, account.context());
             bos.close();
         }
@@ -154,9 +154,12 @@ public class BlobStorageContainer {
      * @param folder
      * @return
      */
-    public Iterable<ListBlobItem> dir(String folder) {
-        folder = account.normalizePath(folder);
-        return container.listBlobs(folder, false /* useFlatBlobListing */, EnumSet.noneOf(BlobListingDetails.class),
+    public Iterable<ListBlobItem> dir(Path folder) {
+        String name = folder.toString();
+        if (!name.isEmpty()) {
+            name += account.getDelimiter();
+        }
+        return container.listBlobs(name, false /* useFlatBlobListing */, EnumSet.noneOf(BlobListingDetails.class),
                 null /* options */, account.context());
     }
 
@@ -167,7 +170,7 @@ public class BlobStorageContainer {
      * @param folder
      * @return true if empty, false if at least one entry
      */
-    public boolean isempty(String folder) {
+    public boolean isempty(Path folder) {
         for (ListBlobItem item : dir(folder)) {
             if (!(item instanceof CloudBlob) || !((CloudBlob) item).getName().equals(folder)) {
                 return false;
@@ -185,13 +188,13 @@ public class BlobStorageContainer {
      * @throws StorageException
      * @throws IOException
      */
-    public void rmdir(String folder) throws URISyntaxException, StorageException, IOException {
-        if (!Strings.isNullOrEmpty(folder)) {
-            folder = account.normalizePath(folder);
+    public void rmdir(Path folder) throws URISyntaxException, StorageException, IOException {
+        if (folder.empty()) {
             if (!isempty(folder)) {
                 throw new IOException(String.format("the directory \"%s\" is not empty", folder));
             }
-            CloudBlob blob = container.getBlobReferenceFromServer(folder, null /* snapshotID */, null /* accessCondition */,
+            String name = folder.toString()+account.getDelimiter();
+            CloudBlob blob = container.getBlobReferenceFromServer(name, null /* snapshotID */, null /* accessCondition */,
                     null /* options */, account.context());
             blob.delete(DeleteSnapshotsOption.NONE, null /* accessCondition */, null /* options */, account.context());
         }

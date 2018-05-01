@@ -2,7 +2,6 @@ package com.cleo.labs.connector.blobstorage;
 
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.util.regex.Pattern;
 
 import com.cleo.connector.api.property.ConnectorPropertyException;
 import com.google.common.base.Strings;
@@ -47,12 +46,16 @@ public class BlobStorageAccount {
     /**
      * Delimiter for Blob directory hierarchy
      */
-    String delimiter;
+    private String delimiter;
+
+    public String getDelimiter() {
+        return delimiter;
+    }
 
     /**
      * Pattern matching NON-EMPTY strings that do NOT end with {@code /}.
      */
-    String not_ending_with_delimiter;
+    private String not_ending_with_delimiter;
 
     /**
      * Returns a folder, normalized to end with / if it doesn't already (and if
@@ -75,23 +78,34 @@ public class BlobStorageAccount {
      */
     public class ContainerAndPath {
         public BlobStorageContainer container;
-        public String path;
+        public Path path;
         public String prefix;
+        /**
+         * Parses a string path into a path.  Additionally, if a container name
+         * is not provided (is {@code null}):
+         * <ul><li>"chroots" off the first node of the path as the container name</li>
+         *     <li>sets the prefix to the container name+the delimiter</li></ul>
+         * The resulting container, path, and prefix are returned.
+         * @param container the (possibly {@code null}) container
+         * @param path the String path name to parse
+         * @throws URISyntaxException
+         * @throws StorageException
+         */
         public ContainerAndPath(BlobStorageContainer container, String path)
                 throws URISyntaxException, StorageException {
-            if (container != null) {
-                this.container = container;
-                this.path = path;
-                this.prefix = "";
-            } else if (Strings.isNullOrEmpty(path)) {
-                this.container = null;
-                this.path = null;
-                this.prefix = null;
-            } else {
-                String[] parts = path.split(Pattern.quote(delimiter), 2);
-                this.container = getContainer(parts[0]);
-                this.path = parts.length > 1 ? parts[1] : "";
-                this.prefix = parts[0]+delimiter;
+            this.container = container;
+            this.path = new Path(delimiter).parse(path);
+            this.prefix = "";
+            if (this.container == null) {
+                if (this.path.empty()) {
+                    this.container = null;
+                    this.path = null;
+                    this.prefix = null;
+                } else {
+                    this.container = getContainer(this.path.node(0));
+                    this.prefix = this.path.node(0)+delimiter;
+                    this.path = this.path.chroot(1);
+                }
             }
         }
     }

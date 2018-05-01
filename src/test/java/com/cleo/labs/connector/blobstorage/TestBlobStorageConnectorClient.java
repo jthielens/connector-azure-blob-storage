@@ -1,38 +1,43 @@
 package com.cleo.labs.connector.blobstorage;
 
 import static com.cleo.connector.api.command.ConnectorCommandOption.Append;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.cleo.connector.api.command.ConnectorCommandResult;
 import com.cleo.connector.api.command.ConnectorCommandResult.Status;
 import com.cleo.connector.api.directory.Entry;
 import com.cleo.connector.api.property.CommonProperty;
-import com.cleo.connector.shell.interfaces.IConnector;
 import com.cleo.connector.shell.interfaces.IConnectorHost;
 import com.cleo.labs.connector.testing.Commands;
 import com.cleo.labs.connector.testing.StringCollector;
 import com.cleo.labs.connector.testing.StringSource;
 import com.cleo.labs.connector.testing.TestConnector;
 import com.cleo.labs.connector.testing.TestConnectorHost;
+import com.google.common.base.Strings;
 
 public class TestBlobStorageConnectorClient {
 
     private static BlobStorageConnectorClient setupClient() {
+        return setupClientAndContainer(TestConfigValues.CONTAINER);
+    }
+
+    private static BlobStorageConnectorClient setupClientAndContainer(String container) {
         BlobStorageConnectorSchema blobSchema = new BlobStorageConnectorSchema();
         blobSchema.setup();
-        IConnector connector = new TestConnector(System.err)
+        TestConnector connector = new TestConnector(System.err)
                 .set("StorageAccountName", TestConfigValues.ACCOUNT)
                 .set("AccessKey", TestConfigValues.KEY)
-                .set("Container", TestConfigValues.CONTAINER)
                 .set(CommonProperty.EnableDebug.name(), Boolean.TRUE.toString());
+        if (!Strings.isNullOrEmpty(container)) {
+            connector.set("Container", container);
+        }
         BlobStorageConnectorClient client = new BlobStorageConnectorClient(blobSchema);
         IConnectorHost connectorHost = new TestConnectorHost(client);
         client.setup(connector, blobSchema, connectorHost);
@@ -40,17 +45,58 @@ public class TestBlobStorageConnectorClient {
         return client;
     }
 
-    @Ignore
     @Test
     public void testDir() throws Exception {
-        BlobStorageConnectorClient client = setupClient();
-        ConnectorCommandResult result = Commands.dir("folder-a").go(client);
+        BlobStorageConnectorClient client = setupClientAndContainer(null);
+        ConnectorCommandResult result;
+
+        String randomContainer = "container-"+UUID.randomUUID().toString();
+        // make a new container
+        result = Commands.mkdir(randomContainer).go(client);
         assertEquals(Status.Success, result.getStatus());
-        List<Entry> entries = result.getDirEntries().orElse(Collections.emptyList());
-        for (Entry e : entries) {
-            System.out.println(e);
+
+        // get a handle on a container client
+        BlobStorageConnectorClient container = setupClientAndContainer(randomContainer);
+
+        // put a folder and file in the container
+        result = Commands.mkdir("folder").go(container);
+        assertEquals(Status.Success, result.getStatus());
+        StringSource source;
+        source = new StringSource("file1.txt", StringSource.lorem);
+        result = Commands.put(source, "file1.txt").go(container);
+        assertEquals(Status.Success, result.getStatus());
+        source = new StringSource("file2.txt", StringSource.lorem);
+        result = Commands.put(source, "folder/file2.txt").go(container);
+        assertEquals(Status.Success, result.getStatus());
+
+        // make sure prefixes are correct
+        result = Commands.dir("").go(container);
+        assertEquals(Status.Success, result.getStatus());
+        for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
+            if (!e.getPath().equals("folder/")) {
+                assertFalse("found / in "+e.getPath(), e.getPath().contains("/"));
+            }
         }
-        assertEquals(8, entries.size());
+        result = Commands.dir("folder").go(container);
+        assertEquals(Status.Success, result.getStatus());
+        for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
+            assertTrue("should start with folder/ in "+e.getPath(), e.getPath().startsWith("folder/"));
+        }
+        // repeat at the client level, now expecting a container prefix
+        result = Commands.dir(randomContainer).go(client);
+        assertEquals(Status.Success, result.getStatus());
+        for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
+            assertTrue("should start with container/ in "+e.getPath(), e.getPath().startsWith(randomContainer+"/"));
+        }
+        result = Commands.dir(randomContainer+"/folder").go(client);
+        assertEquals(Status.Success, result.getStatus());
+        for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
+            assertTrue("should start with container/folder/ in "+e.getPath(), e.getPath().startsWith(randomContainer+"/folder/"));
+        }
+
+        // now delete the container
+        result = Commands.rmdir(randomContainer).go(client);
+        assertEquals(Status.Success, result.getStatus());
     }
 
     //@Ignore

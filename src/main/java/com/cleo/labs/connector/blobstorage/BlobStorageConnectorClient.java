@@ -82,15 +82,12 @@ public class BlobStorageConnectorClient extends ConnectorClient {
     @Command(name = DIR)
     public ConnectorCommandResult dir(DirCommand dir)
             throws ConnectorException, IOException, InvalidKeyException, URISyntaxException, StorageException {
-        String path = dir.getSource().getPath();
+        String source = dir.getSource().getPath();
 
-        logger.debug(String.format("DIR '%s'", path));
+        logger.debug(String.format("DIR '%s'", source));
         setup();
 
-        if (path.equals(".")) path = ""; // TODO: remove when Harmony is fixed
-        ContainerAndPath cp = account.parse(container, path);
-        cp.path = account.normalizePath(cp.path);
-
+        ContainerAndPath cp = account.parse(container, source);
         List<Entry> list = new ArrayList<>();
         if (cp.container == null) {
             for (CloudBlobContainer c : account.dir()) {
@@ -104,12 +101,14 @@ public class BlobStorageConnectorClient extends ConnectorClient {
             for (ListBlobItem item : cp.container.dir(cp.path)) {
                 if (item instanceof CloudBlobDirectory) {
                     CloudBlobDirectory directory = (CloudBlobDirectory) item;
-                    Entry entry = new Entry(Type.dir).setPath(cp.prefix+directory.getPrefix()).setSize(-1L);
+                    Entry entry = new Entry(Type.dir)
+                            .setPath(cp.prefix+directory.getPrefix())
+                            .setSize(-1L);
                     list.add(entry);
                 } else if (item instanceof CloudBlob) {
                     CloudBlob blob = (CloudBlob) item;
-                    if (!blob.getName().equals(cp.path)) { // the directory placeholder
-                                                        // path/ is omitted
+                    if (!blob.getName().equals(cp.path.toString()+"/")) { // the directory placeholder
+                                                                          // path/ is omitted
                         BlobProperties properties = blob.getProperties();
                         Entry entry = new Entry(Type.file)
                                 .setPath(cp.prefix+blob.getName())
@@ -226,7 +225,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
 
         if (cp.container == null) {
             return new BlobStorageEmptyAttributes(logger);
-        } else if (Strings.isNullOrEmpty(cp.path)) {
+        } else if (cp.path.empty()) {
             // return an Attr object representing the container
             return new BlobStorageContainerAttributes(cp.container.getProperties(), logger);
         } else {
@@ -279,7 +278,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
 
         if (cp.container == null) {
             throw new ConnectorException("MKDIR: directory name is required");
-        } else if (Strings.isNullOrEmpty(cp.path)) {
+        } else if (cp.path.empty()) {
             if (container == null) {
                 // mkdir "container" attempt
                 try {
@@ -315,11 +314,12 @@ public class BlobStorageConnectorClient extends ConnectorClient {
 
         if (cp.container == null) {
             throw new ConnectorException("RMDIR: directory name is required");
-        } else if (Strings.isNullOrEmpty(cp.path)) {
+        } else if (cp.path.empty()) {
             if (container == null) {
                 // rmdir "container" attempt
                 try {
                     cp.container.delete();
+                    return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
                 } catch (StorageException e) {
                     throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
                             e,
