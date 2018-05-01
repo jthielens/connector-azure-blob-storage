@@ -76,18 +76,22 @@ public class BlobStorageAccount {
     public class ContainerAndPath {
         public BlobStorageContainer container;
         public String path;
+        public String prefix;
         public ContainerAndPath(BlobStorageContainer container, String path)
                 throws URISyntaxException, StorageException {
             if (container != null) {
                 this.container = container;
                 this.path = path;
+                this.prefix = "";
             } else if (Strings.isNullOrEmpty(path)) {
                 this.container = null;
                 this.path = null;
+                this.prefix = null;
             } else {
                 String[] parts = path.split(Pattern.quote(delimiter), 2);
                 this.container = getContainer(parts[0]);
                 this.path = parts.length > 1 ? parts[1] : "";
+                this.prefix = parts[0]+delimiter;
             }
         }
     }

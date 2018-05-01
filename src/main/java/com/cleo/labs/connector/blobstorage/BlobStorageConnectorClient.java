@@ -104,14 +104,15 @@ public class BlobStorageConnectorClient extends ConnectorClient {
             for (ListBlobItem item : cp.container.dir(cp.path)) {
                 if (item instanceof CloudBlobDirectory) {
                     CloudBlobDirectory directory = (CloudBlobDirectory) item;
-                    Entry entry = new Entry(Type.dir).setPath(directory.getPrefix().substring(cp.path.length())).setSize(-1L);
+                    Entry entry = new Entry(Type.dir).setPath(cp.prefix+directory.getPrefix()).setSize(-1L);
                     list.add(entry);
                 } else if (item instanceof CloudBlob) {
                     CloudBlob blob = (CloudBlob) item;
                     if (!blob.getName().equals(cp.path)) { // the directory placeholder
                                                         // path/ is omitted
                         BlobProperties properties = blob.getProperties();
-                        Entry entry = new Entry(Type.file).setPath(blob.getName().substring(cp.path.length()))
+                        Entry entry = new Entry(Type.file)
+                                .setPath(cp.prefix+blob.getName())
                                 .setSize(properties.getLength())
                                 .setDate(Attributes.toLocalDateTime(properties.getLastModified()));
                         list.add(entry);

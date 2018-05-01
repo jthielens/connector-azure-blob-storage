@@ -44,7 +44,7 @@ public class TestBlobStorageConnectorClient {
     @Test
     public void testDir() throws Exception {
         BlobStorageConnectorClient client = setupClient();
-        ConnectorCommandResult result = Commands.dir("").go(client);
+        ConnectorCommandResult result = Commands.dir("folder-a").go(client);
         assertEquals(Status.Success, result.getStatus());
         List<Entry> entries = result.getDirEntries().orElse(Collections.emptyList());
         for (Entry e : entries) {
