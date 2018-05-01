@@ -76,22 +76,26 @@ public class TestBlobStorageConnectorClient {
             if (!e.getPath().equals("folder/")) {
                 assertFalse("found / in "+e.getPath(), e.getPath().contains("/"));
             }
+            System.out.println("container.dir(): "+e);
         }
         result = Commands.dir("folder").go(container);
         assertEquals(Status.Success, result.getStatus());
         for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
             assertTrue("should start with folder/ in "+e.getPath(), e.getPath().startsWith("folder/"));
+            System.out.println("container.dir(folder): "+e);
         }
         // repeat at the client level, now expecting a container prefix
         result = Commands.dir(randomContainer).go(client);
         assertEquals(Status.Success, result.getStatus());
         for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
             assertTrue("should start with container/ in "+e.getPath(), e.getPath().startsWith(randomContainer+"/"));
+            System.out.println("client.dir(): "+e);
         }
         result = Commands.dir(randomContainer+"/folder").go(client);
         assertEquals(Status.Success, result.getStatus());
         for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
             assertTrue("should start with container/folder/ in "+e.getPath(), e.getPath().startsWith(randomContainer+"/folder/"));
+            System.out.println("client.dir(folder): "+e);
         }
 
         // now delete the container

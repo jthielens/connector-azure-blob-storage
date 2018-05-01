@@ -25,11 +25,21 @@ import com.microsoft.azure.storage.blob.ListBlobItem;
 public class BlobStorageContainer {
     private BlobStorageAccount account;
     private CloudBlobContainer container;
+    private String name;
 
     public BlobStorageContainer(BlobStorageAccount account, String name)
             throws URISyntaxException, StorageException {
         this.account = account;
         this.container = account.client().getContainerReference(name);
+        this.name = name;
+    }
+
+    /**
+     * Gets the container name
+     * @return the container name
+     */
+    public String getName() {
+        return this.name;
     }
 
     /**

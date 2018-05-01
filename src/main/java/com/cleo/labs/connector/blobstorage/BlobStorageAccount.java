@@ -77,35 +77,45 @@ public class BlobStorageAccount {
      * and (possibly empty/null) path.
      */
     public class ContainerAndPath {
-        public BlobStorageContainer container;
-        public Path path;
-        public String prefix;
+        public Path fullPath; // the full path to the object, including container/folder/object
+        public BlobStorageContainer container; // the container reference (or null if an account level reference)
+        public Path path; // the container path to the object, including folder/object
+        public int prefix; // the number of nodes prefixed to the path from the configuration (0 or 1)
         /**
          * Parses a string path into a path.  Additionally, if a container name
          * is not provided (is {@code null}):
          * <ul><li>"chroots" off the first node of the path as the container name</li>
          *     <li>sets the prefix to the container name+the delimiter</li></ul>
          * The resulting container, path, and prefix are returned.
+         * <p/>
+         * Note that the source string is always parsed with the default Path
+         * delimiter (/), as is the fullPath.  The internal subpath off the
+         * container (path) is encoded with the Azure delimiter.
          * @param container the (possibly {@code null}) container
-         * @param path the String path name to parse
+         * @param source the String path name to parse
          * @throws URISyntaxException
          * @throws StorageException
          */
-        public ContainerAndPath(BlobStorageContainer container, String path)
+        public ContainerAndPath(BlobStorageContainer container, String source)
                 throws URISyntaxException, StorageException {
-            this.container = container;
-            this.path = new Path(delimiter).parse(path);
-            this.prefix = "";
-            if (this.container == null) {
+            this.fullPath = new Path().parse(source); // parse with default delimiter
+            this.path = new Path(delimiter).child(this.fullPath); // re-encode with Azure delimiter
+            if (container == null) {
+                // parse the container
+                this.prefix = 0;
                 if (this.path.empty()) {
                     this.container = null;
-                    this.path = null;
-                    this.prefix = null;
                 } else {
                     this.container = getContainer(this.path.node(0));
-                    this.prefix = this.path.node(0)+delimiter;
-                    this.path = this.path.chroot(1);
+                    this.path = path.chroot(1);
                 }
+            } else {
+                // inject the container
+                this.prefix = 1; // show 1 node injected into fullPath
+                this.container = container;
+                this.fullPath = new Path()
+                        .child(container.getName())
+                        .child(this.fullPath);
             }
         }
     }
