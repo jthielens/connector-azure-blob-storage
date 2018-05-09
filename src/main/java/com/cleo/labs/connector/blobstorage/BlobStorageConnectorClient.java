@@ -148,7 +148,6 @@ public class BlobStorageConnectorClient extends ConnectorClient {
 
         try {
             transfer(cp.container.getInputStream(cp.path), destination.getStream(), true);
-            AttrCache.invalidate(clientkey, cp.fullPath);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (StorageException e) {
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", source),
