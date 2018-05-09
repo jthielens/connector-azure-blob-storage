@@ -303,7 +303,6 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         String source = mkdir.getSource();
         logger.debug(String.format("MKDIR '%s'", source));
         setup();
-        if (source.equals(".")) source = ""; // TODO: remove when Harmony is fixed
         ContainerAndPath cp = account.parse(container, source);
 
         if (cp.container == null) {
@@ -341,7 +340,6 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         String path = mkdir.getSource();
         logger.debug(String.format("RMDIR '%s'", path));
         setup();
-        if (path.equals(".")) path = ""; // TODO: remove when Harmony is fixed
         ContainerAndPath cp = account.parse(container, path);
 
         if (cp.container == null) {
