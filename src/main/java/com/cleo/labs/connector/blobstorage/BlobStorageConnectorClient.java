@@ -72,8 +72,8 @@ public class BlobStorageConnectorClient extends ConnectorClient {
      */
     private synchronized void setup() throws InvalidKeyException, ConnectorPropertyException, URISyntaxException, StorageException {
         if (container == null) {
-            logger.debug("connecting as "+config.getConnectionString());
-            logger.debug("proxy is "+config.getProxy());
+            //logger.debug("connecting as "+config.getConnectionString());
+            //logger.debug("proxy is "+config.getProxy());
             account = new BlobStorageAccount(config);
             clientkey = config.getConnectionString();
             if (!Strings.isNullOrEmpty(config.getContainer())) {
@@ -102,8 +102,6 @@ public class BlobStorageConnectorClient extends ConnectorClient {
                 AttrCache.put(source, new Path(c.getName()), new BlobStorageContainerAttributes(c.getProperties(), logger));
             }
         } else {
-            logger.debug(String.format("path=%s fullPath=%s container=%s prefix=%d",
-                    cp.path.toString(), cp.fullPath.toString(), cp.container.getName(), cp.prefix));
             for (ListBlobItem item : cp.container.dir(cp.path)) {
                 if (item instanceof CloudBlobDirectory) {
                     CloudBlobDirectory directory = (CloudBlobDirectory) item;
