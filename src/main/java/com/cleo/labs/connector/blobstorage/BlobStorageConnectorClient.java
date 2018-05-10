@@ -49,7 +49,6 @@ public class BlobStorageConnectorClient extends ConnectorClient {
     private BlobStorageConnectorConfig config;
     private BlobStorageAccount account;
     private BlobStorageContainer container;
-    private String clientkey;
 
     /**
      * Constructs a new {@code BlobStorageConnectorClient} for the schema using
@@ -75,7 +74,6 @@ public class BlobStorageConnectorClient extends ConnectorClient {
             //logger.debug("connecting as "+config.getConnectionString());
             //logger.debug("proxy is "+config.getProxy());
             account = new BlobStorageAccount(config);
-            clientkey = config.getConnectionString();
             if (!Strings.isNullOrEmpty(config.getContainer())) {
                 container = account.getContainer(config.getContainer());
             }
@@ -123,7 +121,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
                                 .setSize(properties.getLength())
                                 .setDate(Attributes.toLocalDateTime(properties.getLastModified()));
                         list.add(entry);
-                        AttrCache.put(clientkey, fullPath, new BlobStorageBlobAttributes(properties, logger));
+                        AttrCache.put(getHost().getAlias(), fullPath, new BlobStorageBlobAttributes(properties, logger));
                     }
                 }
             }
@@ -210,7 +208,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
 
         try {
             transfer(put.getSource().getStream(), cp.container.getOutputStream(cp.path, append, unique), false);
-            AttrCache.invalidate(clientkey, cp.fullPath);
+            AttrCache.invalidate(getHost().getAlias(), cp.fullPath);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (StorageException e) {
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", filename),
@@ -254,7 +252,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
 
         Optional<BasicFileAttributeView> attr = Optional.empty();
         try {
-            attr = AttrCache.get(clientkey, cp.fullPath, new Callable<Optional<BasicFileAttributeView>>() {
+            attr = AttrCache.get(getHost().getAlias(), cp.fullPath, new Callable<Optional<BasicFileAttributeView>>() {
                 @Override
                 public Optional<BasicFileAttributeView> call() {
                     if (cp.container == null) {
@@ -295,7 +293,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         try {
             CloudBlob blob = cp.container.getBlob(cp.path);
             blob.delete();
-            AttrCache.invalidate(clientkey, cp.fullPath);
+            AttrCache.invalidate(getHost().getAlias(), cp.fullPath);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (URISyntaxException | StorageException e) {
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", source),
@@ -318,7 +316,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
                 // mkdir "container" attempt
                 try {
                     cp.container.create();
-                    AttrCache.invalidate(clientkey, cp.fullPath);
+                    AttrCache.invalidate(getHost().getAlias(), cp.fullPath);
                     return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
                 } catch (StorageException e) {
                     throw new ConnectorException("MKDIR cannot create container "+source, e);
@@ -332,7 +330,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         // regular mkdir request
         try {
             cp.container.mkdir(cp.path);
-            AttrCache.invalidate(clientkey, cp.fullPath);
+            AttrCache.invalidate(getHost().getAlias(), cp.fullPath);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (URISyntaxException | StorageException e) {
             throw new ConnectorException(String.format("'%s' does not exist or is not accessible", source),
@@ -355,7 +353,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
                 // rmdir "container" attempt
                 try {
                     cp.container.delete();
-                    AttrCache.invalidate(clientkey, cp.fullPath);
+                    AttrCache.invalidate(getHost().getAlias(), cp.fullPath);
                     return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
                 } catch (StorageException e) {
                     throw new ConnectorException(String.format("'%s' does not exist or is not accessible", path),
@@ -371,7 +369,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
         // regular rmdir request
         try {
             cp.container.rmdir(cp.path);
-            AttrCache.invalidate(clientkey, cp.fullPath);
+            AttrCache.invalidate(getHost().getAlias(), cp.fullPath);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (IOException e) {
             // TODO: not sure what error to return in this situation (non-empty dir)

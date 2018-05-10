@@ -77,11 +77,13 @@ public class TestBlobStorageConnectorClient {
                 assertFalse("found / in "+e.getPath(), e.getPath().contains("/"));
             }
             System.out.println("container.dir(): "+e);
+            assertEquals(e.isDir(), Commands.attr(e.getPath()).go(container).readAttributes().isDirectory());
         }
         result = Commands.dir("folder").go(container);
         assertEquals(Status.Success, result.getStatus());
         for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
             assertTrue("should start with folder/ in "+e.getPath(), e.getPath().startsWith("folder/"));
+            assertEquals(e.isDir(), Commands.attr(e.getPath()).go(container).readAttributes().isDirectory());
             System.out.println("container.dir(folder): "+e);
         }
         // repeat at the client level, now expecting a container prefix
@@ -89,12 +91,14 @@ public class TestBlobStorageConnectorClient {
         assertEquals(Status.Success, result.getStatus());
         for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
             assertTrue("should start with container/ in "+e.getPath(), e.getPath().startsWith(randomContainer+"/"));
+            assertEquals(e.isDir(), Commands.attr(e.getPath()).go(client).readAttributes().isDirectory());
             System.out.println("client.dir(): "+e);
         }
         result = Commands.dir(randomContainer+"/folder").go(client);
         assertEquals(Status.Success, result.getStatus());
         for (Entry e : result.getDirEntries().orElse(Collections.emptyList())) {
             assertTrue("should start with container/folder/ in "+e.getPath(), e.getPath().startsWith(randomContainer+"/folder/"));
+            assertEquals(e.isDir(), Commands.attr(e.getPath()).go(client).readAttributes().isDirectory());
             System.out.println("client.dir(folder): "+e);
         }
 
