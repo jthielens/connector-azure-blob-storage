@@ -162,9 +162,10 @@ public class BlobStorageConnectorClient extends ConnectorClient {
      * use:
      * <ul>
      * <li>if a destination path is provided, use it (e.g. PUT source
-     * destination or through a URI, LCOPY source router:host/destination).</li>
+     * destination or through a URI, LCOPY source scheme:host/destination).</li>
      * <li>if the destination path matches the host alias (e.g. LCOPY source
-     * router:host), prefer the source filename</li>
+     * scheme:host), prefer the source filename</li>
+     * <li>if the destination is a directory, append the source (if available)</li>
      * <li>if the destination is not useful and the source is not empty, use
      * it</li>
      * 
@@ -172,30 +173,35 @@ public class BlobStorageConnectorClient extends ConnectorClient {
      * @return a String to use as the filename
      */
     private String bestFilename(PutCommand put) {
-        String destination = put.getDestination().getPath();
-        if (Strings.isNullOrEmpty(destination) || destination.equals(getHost().getAlias())) {
-            String source = put.getSource().getPath();
-            if (!Strings.isNullOrEmpty(source)) {
-                destination = source;
+        Path source = new Path().parse(put.getSource().getPath());
+        Path destination = new Path().parse(put.getDestination().getPath());
+        if (!source.empty()) {
+            try {
+                if (destination.empty() ||
+                        getAttributes(destination.toString()).readAttributes().isDirectory()) {
+                    destination = destination.child(source.name());
+                }
+            } catch (Exception e) {
+                // never mind
             }
         }
-        return destination;
+        return destination.toString();
     }
 
     @Command(name = PUT, options = { Unique, Delete, Append })
     public ConnectorCommandResult put(PutCommand put) throws
             ConnectorException, IOException, InvalidKeyException, URISyntaxException, StorageException {
+        setup();
         String destination = put.getDestination().getPath();
         IConnectorOutgoing source = put.getSource();
         String filename = bestFilename(put);
 
         logger.debug(String.format("PUT local '%s' to remote '%s' (matching filename '%s')", source.getPath(), destination,
                 filename));
-        setup();
-        ContainerAndPath cp = account.parse(container, destination);
+        ContainerAndPath cp = account.parse(container, filename);
 
         if (cp.container == null) {
-            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", destination),
+            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", filename),
                     ConnectorException.Category.fileNonExistentOrNoAccess);
         }
 
@@ -207,7 +213,7 @@ public class BlobStorageConnectorClient extends ConnectorClient {
             AttrCache.invalidate(clientkey, cp.fullPath);
             return new ConnectorCommandResult(ConnectorCommandResult.Status.Success);
         } catch (StorageException e) {
-            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", destination),
+            throw new ConnectorException(String.format("'%s' does not exist or is not accessible", filename),
                     ConnectorException.Category.fileNonExistentOrNoAccess);
         } catch (URISyntaxException e) {
             throw new IOException(e);

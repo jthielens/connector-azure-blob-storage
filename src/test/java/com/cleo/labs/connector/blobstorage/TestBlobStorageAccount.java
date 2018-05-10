@@ -93,9 +93,9 @@ public class TestBlobStorageAccount {
         StringCollector destination = new StringCollector().name(random);
 
         String path = container+"/"+random;
-        result = Commands.put(source, path).go(client);
+        result = Commands.put(source, container).go(client); // put will append source to container for the destination
         assertEquals(Status.Success, result.getStatus());
-        result = Commands.get(path, destination).go(client);
+        result = Commands.get(path, destination).go(client); // so the get needs to pull from path
         assertEquals(Status.Success, result.getStatus());
         assertEquals(StringSource.lorem, destination.toString());
         result = Commands.delete(path).go(client);
